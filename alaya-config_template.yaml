@@ -1,0 +1,29 @@
+# 自定义配置项，可选项不提供值则使用系统默认值。
+# 若要提供自定义配置，请在对应配置项后填写，字符串使用双引号
+
+# Alaya 数据库配置
+db:
+  host:               # 默认 "localhost"
+  port:               # 默认 3306
+  user:               # 必配项，无默认值
+  password:           # 必配项，无默认值
+  database:           # 必配项，Alaya 使用的 MySQL/MairaDB 数据库名称，无默认值
+
+# Alaya 应用环境配置
+app:
+  sso:                # 用户认证服务，若有则配置接口信息，默认采用简单模式则无需配置
+  ctx_size:           # 3种生成模型上下文规模："tiny", "medium", "large"，默认 large
+  host:               # Alaya 监听地址，默认 0.0.0.0
+  port:               # Alaya 监听端口，默认 8000
+
+# Alaya 搜索参数配置
+retrieval:
+  top_k:              # 向量搜索最大召回知识段落数，默认 10
+  top_k_e:            # 图搜索最大召回知识实体数量，默认 20
+  top_k_r:            # 图搜索最大召回知识关系数量，默认 20
+  top_k_s:            # 图搜索最大召回知识段落数量，默认 10
+
+# Alaya 服务调用相关配置
+service:
+  hurag_server:       # HuRAG API 服务基地址，默认 http://localhost:5002/v1/tools/
+  agent_model:        # 必配项，用于 Agent 调用的大语言模型

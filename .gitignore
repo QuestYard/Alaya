@@ -209,7 +209,7 @@ __marimo__/
 # Vim & Others
 *.swp
 tags
-hurag.yaml
+alaya.yaml
 *.env
 pyrightconfig.json
 .nicegui/

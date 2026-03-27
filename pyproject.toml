@@ -29,6 +29,7 @@ pkuseg = ["numpy"]
 
 [project.scripts]
 alaya = "alaya.main:start"
+alaya-init = "alaya.init_cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.11.0"]

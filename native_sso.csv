@@ -1,0 +1,5 @@
+account,password,username,user_path
+hurag,hurag,HuRAG项目组,/项目组
+test,test,测试用户,/项目组/测试小组
+dev,dev,开发人员,/项目组/开发小组
+maintain,maintain,运维人员,/项目组/运维小组
