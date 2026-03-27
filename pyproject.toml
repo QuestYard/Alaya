@@ -1,0 +1,41 @@
+[project]
+name = "Alaya"
+version = "0.1.0"
+description = "Alaya, A HuRAG based chatbot web application from QuestYard."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "python-dotenv>=1.2.1",
+    "pyyaml>=6.0.3",
+    "aiomysql>=0.3.2",
+    "pymilvus>=2.6.4",
+    "fastapi>=0.123.0",
+    "uvicorn>=0.38.0",
+    "gunicorn>=23.0.0",
+    "openai>=2.8.1",
+    "pydantic-ai>=1.72.0",
+    "uuid6>=2025.0.1",
+    "scipy>=1.17.0",
+    "bm25s>=0.2.14",
+    "html-sanitizer>=2.6.0",
+    "latex2mathml>=3.78.1",
+    "mdformat>=1.0.0",
+    "nicegui>=3.7.1",
+    "pkuseg>=0.0.25",
+]
+
+[tool.uv.extra-build-dependencies]
+pkuseg = ["numpy"]
+
+[project.scripts]
+alaya = "alaya.main:start"
+
+[build-system]
+requires = ["uv_build>=0.9.13,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.1",
+    "matplotlib>=3.10.7",
+]
