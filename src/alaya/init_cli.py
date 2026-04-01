@@ -4,35 +4,32 @@ async def init_db():
         print("Bye!")
         return
 
-    import warnings
-    from aiomysql import Warning as mysql_warning
-    warnings.filterwarnings("ignore", category=mysql_warning)
-    from . import logger, conf, db_pool_name
+    from . import logger, rss
     from .constants import INIT_RSS_SCRIPTS
-    from hurag.dss import rss
 
-    pool = await rss.get_pool(
-        host=conf.mariadb.host,
-        port=conf.mariadb.port,
-        user=conf.mariadb.user,
-        password=conf.mariadb.password,
-        db=conf.mariadb.database,
-        pool_name=db_pool_name,
-    )
     try:
+        import warnings
+        from aiomysql import Warning as mysql_warning
+        warnings.filterwarnings("ignore", category=mysql_warning)
+
+        pool = await rss.get_pool()
         async with pool.acquire() as conn, conn.cursor() as cur:
-            for stmt in INIT_RSS_SCRIPTS:
-                if not stmt:
-                    continue
-                await cur.execute(stmt)
-            await conn.commit()
-            logger.info("HuRAG WebUI database is initialized.")
-            print("HuRAG WebUI 数据库已初始化。")
+            try:
+                for stmt in INIT_RSS_SCRIPTS:
+                    if not stmt:
+                        continue
+                    await cur.execute(stmt)
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
+
+        logger.info("Alaya database is initialized.")
+        print("Alaya 数据库已初始化。")
     except Exception as e:
-        await conn.rollback()
         logger.error(f"Error while initializing the database: {e!r}")
         print("初始化数据库失败，请查看日志。")
-        raise e
+        raise
     finally:
         await rss.close_pool()
 

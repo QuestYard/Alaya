@@ -78,7 +78,7 @@ INIT_RSS_SCRIPTS = [
         account VARCHAR(20) UNIQUE NOT NULL,
         username VARCHAR(50) NOT NULL,
         user_path VARCHAR(100) NOT NULL,
-        summary VARCHAR(65535) DEFAULT NULL,
+        summary TEXT DEFAULT NULL,
         summary_time TIMESTAMP(6) DEFAULT NULL,
         INDEX idx_account (account),
         INDEX idx_summary_time (summary_time)
