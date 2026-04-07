@@ -16,6 +16,9 @@ class Citation(BaseModel):
 
     @classmethod
     def from_knowledge(cls, knowledge: dict) -> Self:
+        """
+        Construct a citation object from the returned knowledge dict of API.
+        """
         ct = cls(
             id=knowledge["segment_id"] or "",
             doc_id=knowledge["metadata"]["id"] or "",

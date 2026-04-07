@@ -7,6 +7,14 @@ from . import logger, conf
 from .events import ClientEvents
 from .constants import MAIN_PAGE_STYLES
 from .models import User
+from .services import (
+    login,
+    SSOUnavailableError,
+    AccountNotExistsError,
+)
+from .viewers import (
+    user_manager,
+)
 
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -216,23 +224,6 @@ async def root():
                 with send_btn:
                     ui.tooltip("发送").classes("text-caption")
 
-    # --- Inner functions ---
-    async def _init_message_container():
-        app.storage.client["current_session_id"] = None
-        app.storage.client["citations"] = {}
-        app.storage.client["messages"] = {}
-        message_container.clear()
-        message_container.classes(remove="flex-grow overflow-y-auto")
-        with message_container:
-            ui.markdown("### 你想了解什么？").classes("text-center text-gray-900 mt-48")
-
-    # --- Callbacks ---
-    async def send_message(message: str | None = None):
-        ...
-
-    # --- Binding callbacks ---
-
-
     # Keyboard event handler for the textarea
     # press 'enter' => send message, 'shift+enter' => newline.
     text_input.on(
@@ -246,6 +237,53 @@ async def root():
             }
         }""",
     )
+
+
+    # --- Inner functions ---
+    async def _init_message_container():
+        app.storage.client["current_session_id"] = None
+        app.storage.client["citations"] = {}
+        app.storage.client["messages"] = {}
+        message_container.clear()
+        message_container.classes(remove="flex-grow overflow-y-auto")
+        with message_container:
+            ui.markdown("### 你想了解什么？").classes("text-center text-gray-900 mt-48")
+
+
+    # --- Callbacks & Event Handlers ---
+
+    # 1. User manager, login, logout, change password, etc.
+    async def user_manager_clicked():
+        user_manager(app, client_events)
+
+    async def user_logged_in_handler():
+        from .services import load_sessions_by_user
+        from .viewers import show_session_history
+
+        top_sessions = await load_sessions_by_user(
+            app.storage.user["current_user"]["id"],
+            limit=100,
+        )
+        show_session_history(top_sessions, session_history_col, client_events)
+        await _init_message_container()
+
+    client_events.user_logged_in.subscribe(user_logged_in_handler)
+    user_manager_lbl.on("click", user_manager_clicked)
+    user_manager_lbl.bind_text_from(
+        app.storage.user,
+        "current_user",
+        backward=lambda u: (
+            f"{u['username']} ({u['account']})" if u and u["account"] else "访客"
+        ),
+    )
+
+
+    # 2. ...
+
+
+    async def send_message(message: str | None = None):
+        ...
+
 
     # --- Login and Initialize UI data ---
     if (
