@@ -30,10 +30,13 @@ def asset(name):
 async def _startup_app() -> None:
     logger.info("Starting up Alaya WebUI App...")
 
-    logger.info("Creating database connection pool ...")
+    logger.info("Creating database connection pool...")
     from . import rss
-
     await rss.get_pool()
+
+    logger.info("Creating HuRAG API client...")
+    from . import hurag
+    await hurag.get_client()
 
     # logger.info("Creating LLM chat client ...")
     # from ..llm import get_oa_client
@@ -44,9 +47,12 @@ async def _startup_app() -> None:
 
 
 async def _shutdown_app() -> None:
-    from . import rss
+    logger.info("Closing HuRAG API client...")
+    from . import hurag
+    await hurag.close_client()
 
     logger.info("Closing database connection pool...")
+    from . import rss
     await rss.close_pool()
 
     # from ..llm import close_oa_client

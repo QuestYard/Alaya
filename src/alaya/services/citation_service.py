@@ -5,7 +5,6 @@ from ..models import Citation
 async def load_citations_by_ids(
     citation_ids: Sequence[str] | set[str],
     cached_citations: dict[str, dict],
-    user_path: str,
 ) -> list[Citation]:
     """Load citations by their IDs from cached citations or HuRAG API.
 
@@ -24,10 +23,10 @@ async def load_citations_by_ids(
     if not uncached_ids:
         return citations
 
-    # Load uncached citations from HuRAG SDK
-    from ...knowledge_base import get_knowledge_by_segment_ids
+    # Load uncached citations from HuRAG API
+    from .. import hurag
 
-    kns = await get_knowledge_by_segment_ids(list(uncached_ids), user_path)
+    kns = await hurag.post("v1/hurag/knowledge", data={"ids": list(uncached_ids)})
     for knowledge in kns:
         citation = Citation.from_knowledge(knowledge)
         citations.append(citation)

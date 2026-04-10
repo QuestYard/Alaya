@@ -7,7 +7,6 @@ from ..services import load_citations_by_ids
 async def show_citations(
     cached_citations: dict[str, dict],
     ids: Sequence[str] | set[str],
-    user_path: str,
     ui_card: ui.card,
     ui_spinner: ui.spinner,
 ):
@@ -33,11 +32,7 @@ async def show_citations(
     import asyncio
 
     await asyncio.sleep(0.05)  # allow UI to update
-    citations = await load_citations_by_ids(
-        ids,
-        cached_citations,
-        user_path,
-    )
+    citations = await load_citations_by_ids(ids, cached_citations)
     ui_spinner.set_visibility(False)
     ui.notify(f"已加载 {len(citations)} 条引文。", type="positive")
     if isinstance(ids, set):

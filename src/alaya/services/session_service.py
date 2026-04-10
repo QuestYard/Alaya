@@ -1,12 +1,4 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from openai import AsyncOpenAI
-
-# from .. import db_pool_name, oa_client_name, oa_model_name
 from ..models import Session, Message
-# from ...llm import with_oa_client, chat_completion, extract_from_chat
 from datetime import datetime
 
 
@@ -66,11 +58,12 @@ async def upsert_session(
     query_ts: datetime,
     response: str,
     response_ts: datetime,
+    *,
     citation_ids: list[str] | None = None,
     session_id: str | None = None,
     title: str | None = None,
     user_id: str | None = None,
-) -> tuple[Session | None, Message, Message]:
+) -> tuple[Session, Message, Message]:
     """
     Insert new session or update existed session.
 
@@ -86,7 +79,7 @@ async def upsert_session(
 
     Return:
         A tuple containing:
-            - The Session object, or None if updating an existed session.
+            - The Session object.
             - The Message object for the user query.
             - The Message object for the LLM response.
     """
@@ -206,6 +199,8 @@ async def upsert_session(
             await conn.rollback()
             raise
 
+    s = await load_session_by_id(session_id)
+    assert s is not None
     q = Message(
         id=query_id,
         session_id=session_id,
@@ -224,7 +219,7 @@ async def upsert_session(
         created_ts=response_ts,
         pair_id=query_id,
     )
-    return None, q, r
+    return s, q, r
 
 
 async def load_messages_by_session(session_id: str) -> list[Message]:
@@ -292,40 +287,38 @@ async def load_citation_ids_by_session(session_id: str) -> dict[str, list[str]]:
     return citation_ids
 
 
-# @with_oa_client(client_name=oa_client_name)
-# async def generate_session_title(
-#     query: str,
-#     *,
-#     max_length: int = 20,
-#     oaclient: AsyncOpenAI,
-# ) -> str:
-#     """
-#     Generate a session title based on the user query.
-# 
-#     Arguments:
-#         query: The user query.
-#         max_length: The maximum length of the title.
-# 
-#     Returns:
-#         The generated session title.
-#     """
-#     title = query.strip()
-#     if len(title) > max_length:
-#         system_prompt = (
-#             "你是一名助手，需根据用户的查询生成简洁且相关的会话标题。"
-#             "请输出能抓住查询核心、字数精炼的标题。"
-#         )
-#         response = await chat_completion(
-#             client=oaclient,
-#             model=oa_model_name,
-#             prompt=(
-#                 f"基于以下用户查询生成一个不超过 {max_length} 字的简洁标题：{query}"
-#             ),
-#             system_prompt=system_prompt,
-#             temperature=0.5,
-#         )
-#         title = extract_from_chat(response).get("content", "").strip()
-#     return title
+async def generate_session_title(query: str, *, max_length: int = 20) -> str:
+    """
+    Generate a session title based on the user query.
+
+    Arguments:
+        query: The user query.
+        max_length: The maximum length of the title.
+
+    Returns:
+        The generated session title.
+    """
+    title = query.strip()
+    if len(title) <= max_length:
+        return title
+
+    from .. import hurag
+
+    system_prompt = (
+        "你是一名助手，需根据用户的查询生成简洁且相关的会话标题。"
+        "请输出能抓住查询核心、字数精炼的标题。"
+    )
+    prompt = f"基于以下用户查询生成一个不超过 {max_length} 字的简洁标题：{query}"
+    response = await hurag.post(
+        "v1/llm/chat",
+        data={
+            "prompt": prompt,
+            "system_prompt": system_prompt,
+            "temperature": 0.5,
+            "stream": False,
+        },
+    )
+    return response["content"]
 
 
 async def dislike_message(message_id: str, dislikes: int):
