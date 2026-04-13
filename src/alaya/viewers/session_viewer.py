@@ -1,6 +1,6 @@
 from ..events import ClientEvents
 from ..models import Session, Message
-from . import (
+from .chat_viewer import (
     display_bot_message,
     display_user_message,
     display_message_footer,

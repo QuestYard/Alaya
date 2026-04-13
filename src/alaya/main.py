@@ -7,14 +7,8 @@ from . import logger, conf
 from .events import ClientEvents
 from .constants import MAIN_PAGE_STYLES
 from .models import User
-from .services import (
-    login,
-    SSOUnavailableError,
-    AccountNotExistsError,
-)
-from .viewers import (
-    user_manager,
-)
+from .services import login, SSOUnavailableError, AccountNotExistsError
+from .viewers import user_manager
 
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
