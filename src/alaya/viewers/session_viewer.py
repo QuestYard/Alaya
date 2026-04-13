@@ -1,17 +1,11 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..events import ClientEvents
-
+from ..events import ClientEvents
 from ..models import Session, Message
-from .chat_viewer import (
+from . import (
     display_bot_message,
     display_user_message,
     display_message_footer,
     scroll_to_bottom,
 )
-
 from nicegui import ui
 
 

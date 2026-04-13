@@ -1,9 +1,4 @@
-from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from ..events import ClientEvents
-
+from ..events import ClientEvents
 from ..models import User
 from ..services import (
     SSOUnavailableError,

@@ -10,7 +10,6 @@ from .chat_viewer import (
     display_bot_message,
     display_message_footer,
     scroll_to_bottom,
-    chat_with_backend,
 )
 
 __all__ = [
@@ -22,6 +21,5 @@ __all__ = [
     "display_bot_message",
     "display_message_footer",
     "scroll_to_bottom",
-    "chat_with_backend",
     "session_browser",
 ]

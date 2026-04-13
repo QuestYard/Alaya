@@ -2,6 +2,7 @@ import json
 import asyncio
 from httpx import AsyncClient, Timeout, Limits
 from typing import Any
+from collections.abc import AsyncGenerator
 
 
 _clients: dict[str, AsyncClient] = {}
@@ -70,3 +71,28 @@ async def post(url: str, *, data: Any = None, client_name: str = "default") -> A
     response = await cli.post(url, json=data)
     response.raise_for_status()
     return json.loads(response.text)
+
+async def chat(
+    prompt: str,
+    *,
+    system_prompt: str | None = None,
+    history: list[dict[str, str]] | None = None,
+    temperature: float = 0.0,
+    timeout: float = 180.0,
+    client_name: str = "default",
+) -> AsyncGenerator[str]:
+    cli = await get_client(client_name=client_name)
+    data = {"prompt": prompt, "temperature": temperature, "timeout": int(timeout)}
+    if system_prompt:
+        data["system_prompt"] = system_prompt
+    if history:
+        data["history"] = history
+    async with cli.stream("POST", "v1/llm/chat", json=data) as resp:
+        resp.raise_for_status()
+        async for line in resp.aiter_lines():
+            if not line or not line.startswith("data: "):
+                continue
+            payload = line.removeprefix("data: ")
+            if payload == "[DONE]":
+                break
+            yield json.loads(payload)["delta"]
