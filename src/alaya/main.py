@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from nicegui import ui, app
 from fastapi.staticfiles import StaticFiles
@@ -6,9 +7,9 @@ from fastapi.staticfiles import StaticFiles
 from . import logger, conf
 from .events import ClientEvents
 from .constants import MAIN_PAGE_STYLES
-from .models import User
+from .models import User, Citation, Message
 from .services import login, SSOUnavailableError, AccountNotExistsError
-from .viewers import user_manager
+from .viewers import user_manager, show_citations, scroll_to_bottom
 
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -252,7 +253,7 @@ async def root():
 
     # --- Callbacks & Event Handlers ---
 
-    # 1. User manager, login, logout, change password, etc.
+    # 1. User management: login, logout, change password, etc.
     async def user_manager_clicked():
         user_manager(app, client_events)
 
@@ -268,6 +269,7 @@ async def root():
         await _init_message_container()
 
     client_events.user_logged_in.subscribe(user_logged_in_handler)
+
     user_manager_lbl.on("click", user_manager_clicked)
     user_manager_lbl.bind_text_from(
         app.storage.user,
@@ -277,12 +279,364 @@ async def root():
         ),
     )
 
+    # 2. Citation management
+    async def toggle_citation_drawer():
+        if citation_drawer.value:
+            citation_drawer.value = False
 
-    # 2. ...
+    citation_btn.on_click(lambda: toggle_citation_drawer())
+    citation_btn.bind_icon_from(
+        citation_drawer,
+        "value",
+        backward=lambda o: "sym_r_auto_stories" if o else "sym_r_book",
+    )
+    citations_badge.bind_visibility_from(
+        citation_drawer,
+        "value",
+    )
 
+    # 3. Session management
+    async def new_session_clicked():
+        if app.storage.client["current_session_id"] is None:
+            return  # already in a new session
+        await _init_message_container()
+
+    new_session_btn.on_click(new_session_clicked)
+
+    async def search_session_clicked():
+        from .viewers import session_browser
+
+        await session_browser(app.storage.user["current_user"]["id"], client_events)
+
+    search_session_btn.on_click(search_session_clicked)
+
+    async def history_session_clicked_handler(session_id: str):
+        from .viewers import join_history_session
+
+        app.storage.client["current_session_id"] = session_id
+        app.storage.client["citations"], msgs = await join_history_session(
+            session_id,
+            message_container,
+            app.storage.user["current_user"]["username"],
+            client_events,
+        )
+        app.storage.client["messages"] = {m.id: m.model_dump() for m in msgs}
+        if citation_drawer.value:
+            citation_drawer.value = False
+
+    client_events.history_session_clicked.subscribe(history_session_clicked_handler)
+
+    async def edit_session_title_clicked_handler(session_id: str):
+        from .services import (
+            load_session_by_id,
+            update_session_title,
+            load_sessions_by_user,
+        )
+        from .viewers import show_session_history
+
+        session = await load_session_by_id(session_id)
+        if not session:
+            return
+
+        with ui.dialog() as dialog, ui.card().classes("w-2xl p-4"):
+            new_title = ui.input(
+                label="修改会话标题(最多20字)",
+                value=session.title,
+                placeholder="新标题",
+            ).classes("w-full mx-auto")
+            with ui.row().classes("w-full justify-end"):
+                ui.button(
+                    "确定",
+                    color="emerald-800",
+                    on_click=lambda: dialog.submit(new_title.value.strip()[:20]),
+                ).props("flat").classes("text-white px-6")
+                ui.button(
+                    "取消", color="zinc-200", on_click=lambda: dialog.submit(None)
+                ).props("flat").classes("text-gray-600 px-6")
+        result = await dialog
+        if not result:
+            return  # cancelled
+        await update_session_title(session_id, result)
+        top_sessions = await load_sessions_by_user(
+            app.storage.user["current_user"]["id"],
+            limit=100,
+        )
+        show_session_history(top_sessions, session_history_col, client_events)
+
+    client_events.edit_session_title_clicked.subscribe(
+        edit_session_title_clicked_handler
+    )
+
+    async def delete_session_clicked_handler(session_id: str):
+        from .services import delete_session_by_id, load_sessions_by_user
+        from .viewers import show_session_history
+
+        with ui.dialog() as dialog, ui.card().classes("w-96 pt-6 gap-0"):
+            ui.label("确认删除该会话？此操作不可撤销。").classes("text-base mx-auto")
+            with ui.row().classes("w-full justify-center mt-4"):
+                ui.button(
+                    "删除", color="emerald-800", on_click=lambda: dialog.submit(True)
+                ).props("flat").classes("text-white px-6")
+                ui.button(
+                    "取消", color="zinc-200", on_click=lambda: dialog.submit(False)
+                ).props("flat").classes("text-gray-600 px-6")
+        confirm = await dialog
+        if confirm:
+            await delete_session_by_id(session_id)
+            ui.notify("会话已删除", type="positive")
+            # Refresh session history
+            top_sessions = await load_sessions_by_user(
+                app.storage.user["current_user"]["id"], limit=100
+            )
+            show_session_history(top_sessions, session_history_col, client_events)
+            # If deleted session is current, init message container
+            if app.storage.client["current_session_id"] == session_id:
+                await _init_message_container()
+
+    client_events.delete_session_clicked.subscribe(delete_session_clicked_handler)
+
+    async def pin_session_clicked_handler(session_id: str):
+        from .services import pin_session_by_id, load_sessions_by_user
+        from .viewers import show_session_history
+
+        await pin_session_by_id(session_id)
+        top_sessions = await load_sessions_by_user(
+            app.storage.user["current_user"]["id"], limit=100
+        )
+        show_session_history(top_sessions, session_history_col, client_events)
+
+    client_events.pin_session_clicked.subscribe(pin_session_clicked_handler)
+
+    # 4. Message buttons, like, dislike, download, etc.
+    async def copy_response_clicked_handler(message_id: str):
+        msg = app.storage.client["messages"].get(message_id)
+        if msg:
+            ui.clipboard.write(msg["content"])
+            ui.notify("已复制到剪贴板")
+        else:
+            ui.notify("消息未找到，复制失败", type="negative")
+
+    client_events.copy_response_clicked.subscribe(copy_response_clicked_handler)
+
+    async def regenerate_response_clicked_handler(message_id: str | None):
+        msg = app.storage.client["messages"].get(message_id)
+        await send_message(msg["content"])
+
+    client_events.regenerate_response_clicked.subscribe(
+        regenerate_response_clicked_handler
+    )
+
+    async def like_response_clicked_handler(e, message_id: str):
+        from .services import like_message
+
+        msg = app.storage.client["messages"].get(message_id)
+        msg["likes"] = 1 - msg["likes"]
+        e.sender.props("color=amber-600" if msg["likes"] else "color=gray-500")
+        await like_message(msg["id"], msg["likes"])
+
+    client_events.like_response_clicked.subscribe(like_response_clicked_handler)
+
+    async def dislike_response_clicked_handler(e, message_id: str):
+        from .services import dislike_message
+
+        msg = app.storage.client["messages"].get(message_id)
+        msg["dislikes"] = 1 - msg["dislikes"]
+        e.sender.props("color=amber-600" if msg["dislikes"] else "color=gray-500")
+        await dislike_message(msg["id"], msg["dislikes"])
+
+    client_events.dislike_response_clicked.subscribe(dislike_response_clicked_handler)
+
+    async def download_response_clicked_handler(message_id: str):
+        msg = app.storage.client["messages"].get(message_id)
+        if msg:
+            filename = f"response_{message_id}.md"
+            ui.download.content(msg["content"], filename)
+        else:
+            ui.notify("消息未找到，下载失败", type="negative")
+
+    client_events.download_response_clicked.subscribe(download_response_clicked_handler)
+
+    async def show_message_citations_clicked_handler(message_id: str):
+        citation_ids = app.storage.client["citations"].get(message_id, [])
+        citations_badge.set_text(str(len(citation_ids)) if citation_ids else "0")
+        if not citation_drawer.value:
+            citation_drawer.value = True
+        await show_citations(
+            app.storage.general["cached_citations"],
+            citation_ids,
+            citations_card,
+            citation_spinner,
+        )
+
+    client_events.show_message_citations_clicked.subscribe(
+        show_message_citations_clicked_handler
+    )
+
+    # 5. Others: UI, waiting spinner
+    text_input.bind_enabled_from(waiting_spinner, "visible", backward=lambda v: not v)
+    upload_btn.bind_enabled_from(waiting_spinner, "visible", backward=lambda v: not v)
+    send_btn.bind_enabled_from(waiting_spinner, "visible", backward=lambda v: not v)
+
+    # 6. Chating
+    upload_btn.on_click(lambda: ui.notify("上传附件功能待实现"))
 
     async def send_message(message: str | None = None):
-        ...
+        from datetime import datetime
+        from .utilities import generate_id
+        from .viewers import (
+            display_user_message,
+            display_message_footer,
+            show_session_history,
+        )
+        from .services import (
+            upsert_session,
+            load_sessions_by_user,
+            generate_session_title,
+        )
+
+        # Perpare user query and timestamp
+        query = message or text_input.value.strip()
+        if not query:
+            return
+        query_ts = datetime.now()
+
+        # Initialize session and message container if needed
+        task = None
+        if app.storage.client["current_session_id"] is None:
+            # Generate new session's title in background
+            task = asyncio.create_task(generate_session_title(query))
+            app.storage.client["citations"] = {}
+            app.storage.client["messages"] = {}
+            message_container.clear()
+            message_container.classes(add="flex-grow overflow-y-auto")
+
+        # Show user query
+        with message_container:
+            await display_user_message(
+                query,
+                app.storage.user["current_user"]["username"],
+                query_ts,
+            )
+        text_input.set_value("")
+
+        # Show waiting spinner and scroll to bottom, will disable input area
+        waiting_spinner.set_visibility(True)
+        await scroll_to_bottom(message_container)
+
+        # Agent loop, retrieve citations, and generate the final response
+        # TODO
+
+        # merge citations retrieved by tools
+        retrieved_citations: list[Citation] = []  # should be implemented later
+        app.storage.general["cached_citations"] |= {
+            c.id: c.model_dump() for c in retrieved_citations
+        }
+
+        # Get current citation IDs
+        citation_ids = [c.id or "" for c in retrieved_citations]
+
+        # Show final response in stream mode
+        # TODO: should be implemented later
+        response: str = ""
+        response_ts: datetime = datetime.now()
+
+        # Save/Update session, message and citations
+        if app.storage.user["current_user"]["id"] is not None:
+            # Not a guest user
+            if app.storage.client["current_session_id"] is None:
+                # New session creation logic
+                # 1) Wait and get the generated session title
+                assert task is not None
+                title = await task
+                # 2) Save new session
+                s, q, r = await upsert_session(
+                    query=query,
+                    query_ts=query_ts,
+                    response=response,
+                    response_ts=response_ts,
+                    citation_ids=citation_ids,
+                    session_id=None,
+                    title=title,
+                    user_id=app.storage.user["current_user"]["id"],
+                )
+                # 3) Update current_session_id
+                assert s is not None
+                app.storage.client["current_session_id"] = s.id
+            else:
+                # Update existing session
+                # 1) Update session
+                _, q, r = await upsert_session(
+                    query=query,
+                    query_ts=query_ts,
+                    response=response,
+                    response_ts=response_ts,
+                    citation_ids=citation_ids,
+                    session_id=app.storage.client["current_session_id"],
+                )
+            # Update current messages
+            app.storage.client["messages"][q.id] = q.model_dump()
+            app.storage.client["messages"][r.id] = r.model_dump()
+            # Update citations
+            if citation_ids:
+                app.storage.client["citations"][r.id] = citation_ids
+            # Refresh recent sessions in the left drawer
+            top_sessions = await load_sessions_by_user(
+                app.storage.user["current_user"]["id"],
+                limit=100,
+            )
+            show_session_history(top_sessions, session_history_col, client_events)
+        else:
+            # Guest user, no database saving, only temp storage
+            temp_session_id = "guest_session"
+            app.storage.client["current_session_id"] = temp_session_id
+            qid = generate_id()
+            rid = generate_id()
+            q = Message(
+                **{
+                    "id": qid,
+                    "session_id": temp_session_id,
+                    "seq_no": len(app.storage.client["messages"]),
+                    "role": "user",
+                    "content": query,
+                    "created_ts": query_ts,
+                    "pair_id": rid,
+                }
+            )
+            r = Message(
+                **{
+                    "id": rid,
+                    "session_id": temp_session_id,
+                    "seq_no": len(app.storage.client["messages"]) + 1,
+                    "role": "assistant",
+                    "content": response,
+                    "created_ts": response_ts,
+                    "pair_id": qid,
+                }
+            )
+            app.storage.client["messages"][qid] = q.model_dump()
+            app.storage.client["messages"][rid] = r.model_dump()
+
+        # Add footbar to response message
+        with message_container:
+            await display_message_footer(
+                app.storage.user["current_user"]["id"] and r.id,
+                app.storage.user["current_user"]["id"] and q.id,
+                client_events,
+                response_ts,
+            )
+
+        # End of a round of chat
+        waiting_spinner.set_visibility(False)
+        await scroll_to_bottom(message_container)
+        text_input.run_method("focus")
+
+        # Refresh citations drawer if open
+        if citation_drawer.value:
+            client_events.show_message_citations_clicked.emit(r.id)
+
+        # --- End of send_message function ---
+
+    send_btn.on_click(send_message)
 
 
     # --- Login and Initialize UI data ---
