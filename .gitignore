@@ -213,3 +213,4 @@ alaya.yaml
 *.env
 pyrightconfig.json
 .nicegui/
+dev_notes/
