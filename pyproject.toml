@@ -22,6 +22,8 @@ dependencies = [
     "mdformat>=1.0.0",
     "nicegui>=3.7.1",
     "pkuseg>=0.0.25",
+    "typer>=0.15.0",
+    "rich>=13.9.0",
 ]
 
 [tool.uv.extra-build-dependencies]
@@ -30,6 +32,7 @@ pkuseg = ["numpy"]
 [project.scripts]
 alaya = "alaya.main:start"
 alaya-init = "alaya.init_cli:main"
+alaya-chat = "alaya.cli.chat_cli:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.11.0"]

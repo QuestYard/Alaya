@@ -51,10 +51,6 @@ def load_config() -> Any:
         config.app.ctx_size = config.app.ctx_size or "large"
         config.app.host = config.app.host or "0.0.0.0"
         config.app.port = config.app.port or 8000
-        config.retrieval.top_k = config.retrieval.top_k or 10
-        config.retrieval.top_k_e = config.retrieval.top_k_e or 20
-        config.retrieval.top_k_r = config.retrieval.top_k_r or 20
-        config.retrieval.top_k_s = config.retrieval.top_k_s or 10
         config.service.hurag_server = (
             config.service.hurag_server or "http://localhost:5002/v1/tools"
         )

@@ -3,6 +3,7 @@ import asyncio
 from httpx import AsyncClient, Timeout, Limits
 from typing import Any
 from collections.abc import AsyncGenerator
+from warnings import deprecated
 
 
 _clients: dict[str, AsyncClient] = {}
@@ -72,6 +73,9 @@ async def post(url: str, *, data: Any = None, client_name: str = "default") -> A
     response.raise_for_status()
     return json.loads(response.text)
 
+
+# --- this function is deprecated
+@deprecated("Disabled since HuRAG 0.4.0, do not call it")
 async def chat(
     prompt: str,
     *,

@@ -18,10 +18,53 @@ app:
 
 # Alaya 搜索参数配置
 retrieval:
-  top_k:              # 向量搜索最大召回知识段落数，默认 10
-  top_k_e:            # 图搜索最大召回知识实体数量，默认 20
-  top_k_r:            # 图搜索最大召回知识关系数量，默认 20
-  top_k_s:            # 图搜索最大召回知识段落数量，默认 10
+  output_limits:      # text, graph, both 三种搜索类型下默认返回的证据数量
+    text:
+      segments: 8
+
+    graph:
+      entities: 8
+      relations: 12
+      segments: 8
+
+    both:
+      entities: 8
+      relations: 12
+      segments: 10
+
+  quality_profiles:   # 不同 quality 下候选集扩大因子以及是否 rerank 的选择
+    fast:
+      text:
+        candidate_multiplier: 1
+        rerank: false
+
+      graph:
+        entity_candidate_multiplier: 1
+        relation_candidate_multiplier: 1
+        segment_candidate_multiplier: 1
+        rerank: false
+
+    balanced:
+      text:
+        candidate_multiplier: 3
+        rerank: false
+
+      graph:
+        entity_candidate_multiplier: 2
+        relation_candidate_multiplier: 2
+        segment_candidate_multiplier: 2
+        rerank: false
+
+    precise:
+      text:
+        candidate_multiplier: 4
+        rerank: true
+
+      graph:
+        entity_candidate_multiplier: 3
+        relation_candidate_multiplier: 3
+        segment_candidate_multiplier: 4
+        rerank: true
 
 # Alaya 服务调用相关配置
 service:
