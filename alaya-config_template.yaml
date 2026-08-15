@@ -13,8 +13,15 @@ db:
 app:
   sso:                # 用户认证服务，若有则配置接口信息，默认采用简单模式则无需配置
   ctx_size:           # 3种生成模型上下文规模："tiny", "medium", "large"，默认 large
+  ctx_limit:          # 3种上下文规模对应的长度上限
+    tiny:      4000   #   tiny 窗口尺寸, 默认约 4K
+    medium:    32000  #   medium 窗口尺寸, 默认约 32K
+    large:     256000 #   large 窗口尺寸, 默认约 256K
   host:               # Alaya 监听地址，默认 0.0.0.0
   port:               # Alaya 监听端口，默认 8000
+  summary_size:       # 历史对话压缩时保留的字符串长度
+    query:     100    #   用户提问压缩后保留长度, 默认保留 100 个字
+    answer:    150    #   模型回答压缩后保留长度, 默认保留 150 个字
 
 # Alaya 搜索参数配置
 retrieval:

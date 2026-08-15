@@ -49,8 +49,13 @@ def load_config() -> Any:
         config.db.host = config.db.host or "localhost"
         config.db.port = config.db.port or 3306
         config.app.ctx_size = config.app.ctx_size or "large"
+        config.app.ctx_limit.tiny = config.app.ctx_limit.tiny or 4000
+        config.app.ctx_limit.medium = config.app.ctx_limit.medium or 32000
+        config.app.ctx_limit.large = config.app.ctx_limit.large or 256000
         config.app.host = config.app.host or "0.0.0.0"
         config.app.port = config.app.port or 8000
+        config.app.summary_size.query = config.app.summary_size.query or 100
+        config.app.summary_size.answer = config.app.summary_size.answer or 150
         config.service.hurag_server = (
             config.service.hurag_server or "http://localhost:5002/v1/tools"
         )

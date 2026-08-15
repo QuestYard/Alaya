@@ -19,14 +19,14 @@ ContextSize = Literal["tiny", "medium", "large"]
 # Token thresholds corresponding to context scale configurations:
 # tiny: ~4K, medium: ~32K, large: ~256K
 CONTEXT_LIMITS: dict[str, int] = {
-    "tiny": 4000,
-    "medium": 32000,
-    "large": 256000,
+    "tiny": conf.app.ctx_limit.tiny,
+    "medium": conf.app.ctx_limit.medium,
+    "large": conf.app.ctx_limit.large,
 }
 
 # Length of summaries of queries and answers
-Q_SUMM_LEN: int = 100
-A_SUMM_LEN: int = 150
+Q_SUMM_LEN: int = conf.app.summary_size.query
+A_SUMM_LEN: int = conf.app.summary_size.answer
 
 
 def estimate_tokens(messages: list[ModelMessage]) -> int:
