@@ -1,5 +1,6 @@
 import os
 import asyncio
+import mdformat
 
 from nicegui import ui, app
 from fastapi.staticfiles import StaticFiles
@@ -7,9 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from . import logger, conf
 from .events import ClientEvents
 from .constants import MAIN_PAGE_STYLES
-from .models import User, Citation, Message
+from .models import User, Message
 from .services import login, SSOUnavailableError, AccountNotExistsError
-from .viewers import user_manager, show_citations, scroll_to_bottom
+from .viewers import user_manager, scroll_to_bottom
 
 
 src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -112,46 +113,78 @@ async def root():
             ui.label("Alaya - 知识恒久流转，终将转识成智").classes("text-h6")
             waiting_spinner = ui.spinner("bars", size="sm", color="zinc-500")
             waiting_spinner.set_visibility(False)
-        # 2. Citation Button and Badge
+
+#         # 2. Citation Button and Badge (not be used by now, reserved)
+#         with ui.row().classes("items-center gap-2"):
+#             citation_btn = ui.button(icon="sym_r_book").props(
+#                 "fab-mini flat color=gray-800"
+#             )
+#             with citation_btn:
+#                 citations_badge = ui.badge(color="red-700", text_color="white").classes(
+#                     "pointer-events-none absolute top-1 right-1 "
+#                     "translate-x-1/3 -translate-y-1/3 "
+#                     "min-w-[16px] h-[16px] px-[4px] py-0 "
+#                     "flex items-center justify-center "
+#                     "rounded-full text-[10px] leading-none shadow"
+#                 )
+#                 ui.tooltip("隐藏引文").classes("text-caption")
+
+        # 2. Toggle button to open/close the thinking part drawer
         with ui.row().classes("items-center gap-2"):
-            citation_btn = ui.button(icon="sym_r_book").props(
+            thinking_btn = ui.button("THINKING", icon="sym_r_cognition").props(
                 "fab-mini flat color=gray-800"
             )
-            with citation_btn:
-                citations_badge = ui.badge(color="red-700", text_color="white").classes(
-                    "pointer-events-none absolute top-1 right-1 "
-                    "translate-x-1/3 -translate-y-1/3 "
-                    "min-w-[16px] h-[16px] px-[4px] py-0 "
-                    "flex items-center justify-center "
-                    "rounded-full text-[10px] leading-none shadow"
-                )
-                ui.tooltip("隐藏引文").classes("text-caption")
+            with thinking_btn:
+                ui.tooltip("显示/隐藏思考内容").classes("text-caption")
 
-    # --- Right drawer (references, citations, document viewer) ---
-    citation_drawer = (
+#     # --- Right drawer (not be used by now, reserved) ---
+#     citation_drawer = (
+#         ui.right_drawer(fixed=False, value=False)
+#         .props("width=420")
+#         .classes("border-l-1 border-gray-300")
+#     )
+#     with citation_drawer, ui.column().classes("fit no-wrap"):
+#         # 1. Drawer Title
+#         with ui.row().classes("w-full items-center"):
+#             ui.label("知识库引文").classes("text-subtitle1 font-bold")
+#             citation_spinner = ui.spinner("dots", color="zinc-500", size="sm")
+#             citation_spinner.set_visibility(False)
+#         # 2. Citations Card (to be filled dynamically)
+#         citations_card = (
+#             ui.card()
+#             .classes(
+#                 "shadow-none border-0 w-full flex-grow overflow-y-auto mb-2 pl-0 pt-0"
+#             )
+#             .style(
+#                 "mask-image: linear-gradient(to bottom, transparent, "
+#                 "black 20px, black 90%, transparent);"
+#                 "-webkit-mask-image: linear-gradient(to bottom, transparent, "
+#                 "black 20px, black 90%, transparent);"
+#             )
+#         )
+
+    # --- Right drawer (not be used by now, reserved) ---
+    thinking_drawer = (
         ui.right_drawer(fixed=False, value=False)
         .props("width=420")
         .classes("border-l-1 border-gray-300")
     )
-    with citation_drawer, ui.column().classes("fit no-wrap"):
-        # 1. Drawer Title
-        with ui.row().classes("w-full items-center"):
-            ui.label("知识库引文").classes("text-subtitle1 font-bold")
-            citation_spinner = ui.spinner("dots", color="zinc-500", size="sm")
-            citation_spinner.set_visibility(False)
-        # 2. Citations Card (to be filled dynamically)
-        citations_card = (
-            ui.card()
-            .classes(
-                "shadow-none border-0 w-full flex-grow overflow-y-auto mb-2 pl-0 pt-0"
-            )
-            .style(
-                "mask-image: linear-gradient(to bottom, transparent, "
-                "black 20px, black 90%, transparent);"
-                "-webkit-mask-image: linear-gradient(to bottom, transparent, "
-                "black 20px, black 90%, transparent);"
-            )
-        )
+    with thinking_drawer, ui.column().classes("fit no-wrap"):
+#         thinking_card = (
+#             ui.card()
+#             .classes(
+#                 "shadow-none border-0 w-full flex-grow overflow-y-auto mb-2 pl-0 pt-0"
+#             )
+#             .style(
+#                 "mask-image: linear-gradient(to bottom, transparent, "
+#                 "black 20px, black 90%, transparent);"
+#                 "-webkit-mask-image: linear-gradient(to bottom, transparent, "
+#                 "black 20px, black 90%, transparent);"
+#             )
+#         )
+#         with thinking_card:
+        thinking_card = ui.markdown("").classes("text-body2 text-gray-500 italic")
+
 
     # --- Left drawer (search menus, session history, settings, users) ---
     user_drawer = (
@@ -241,14 +274,34 @@ async def root():
 
 
     # --- Inner functions ---
+    async def toggle_thinking_drawer():
+        thinking_drawer.value = not thinking_drawer.value
+
+    async def show_thinking_drawer():
+        thinking_drawer.value = True
+
+    async def hide_thinking_drawer():
+        thinking_drawer.value = False
+
+    async def clear_thinking_card():
+        thinking_card.set_content("")
+
+    async def show_thinking_part(text: str, stream: bool = True):
+        if stream:
+            thinking_card.set_content(thinking_card.content + text)
+        else:
+            thinking_card.set_content(text)
+
     async def _init_message_container():
         app.storage.client["current_session_id"] = None
-        app.storage.client["citations"] = {}
         app.storage.client["messages"] = {}
+        app.storage.client["raw_msgs"] = []
         message_container.clear()
         message_container.classes(remove="flex-grow overflow-y-auto")
         with message_container:
             ui.markdown("### 你想了解什么？").classes("text-center text-gray-900 mt-48")
+        await clear_thinking_card()
+        await hide_thinking_drawer()
 
 
     # --- Callbacks & Event Handlers ---
@@ -279,21 +332,24 @@ async def root():
         ),
     )
 
-    # 2. Citation management
-    async def toggle_citation_drawer():
-        if citation_drawer.value:
-            citation_drawer.value = False
+#     # 2. Citation management (not be used by now, reserved)
+#     async def toggle_citation_drawer():
+#         if citation_drawer.value:
+#             citation_drawer.value = False
+# 
+#     citation_btn.on_click(lambda: toggle_citation_drawer())
+#     citation_btn.bind_icon_from(
+#         citation_drawer,
+#         "value",
+#         backward=lambda o: "sym_r_auto_stories" if o else "sym_r_book",
+#     )
+#     citations_badge.bind_visibility_from(
+#         citation_drawer,
+#         "value",
+#     )
 
-    citation_btn.on_click(lambda: toggle_citation_drawer())
-    citation_btn.bind_icon_from(
-        citation_drawer,
-        "value",
-        backward=lambda o: "sym_r_auto_stories" if o else "sym_r_book",
-    )
-    citations_badge.bind_visibility_from(
-        citation_drawer,
-        "value",
-    )
+    # 2. Thinking drawer management
+    thinking_btn.on_click(lambda: toggle_thinking_drawer())
 
     # 3. Session management
     async def new_session_clicked():
@@ -312,17 +368,20 @@ async def root():
 
     async def history_session_clicked_handler(session_id: str):
         from .viewers import join_history_session
+        from .agents import restore_message_history
 
         app.storage.client["current_session_id"] = session_id
-        app.storage.client["citations"], msgs = await join_history_session(
+        _, msgs = await join_history_session(
             session_id,
             message_container,
             app.storage.user["current_user"]["username"],
             client_events,
         )
         app.storage.client["messages"] = {m.id: m.model_dump() for m in msgs}
-        if citation_drawer.value:
-            citation_drawer.value = False
+        app.storage.client["raw_msgs"] = restore_message_history(msgs)
+        await clear_thinking_card()
+        await hide_thinking_drawer()
+        await scroll_to_bottom(message_container)
 
     client_events.history_session_clicked.subscribe(history_session_clicked_handler)
 
@@ -339,7 +398,7 @@ async def root():
             return
 
         with ui.dialog() as dialog, ui.card().classes("w-2xl p-4"):
-            new_title = ui.input(
+            new_ttl = ui.input(
                 label="修改会话标题(最多20字)",
                 value=session.title,
                 placeholder="新标题",
@@ -348,8 +407,10 @@ async def root():
                 ui.button(
                     "确定",
                     color="emerald-800",
-                    on_click=lambda: dialog.submit(new_title.value.strip()[:20]),
-                ).props("flat").classes("text-white px-6")
+                    on_click=lambda: dialog.submit((new_ttl.value or "").strip()[:20]),
+                ).props("flat").classes("text-white px-6").bind_enabled_from(
+                    new_ttl, "value"
+                )
                 ui.button(
                     "取消", color="zinc-200", on_click=lambda: dialog.submit(None)
                 ).props("flat").classes("text-gray-600 px-6")
@@ -456,22 +517,6 @@ async def root():
 
     client_events.download_response_clicked.subscribe(download_response_clicked_handler)
 
-    async def show_message_citations_clicked_handler(message_id: str):
-        citation_ids = app.storage.client["citations"].get(message_id, [])
-        citations_badge.set_text(str(len(citation_ids)) if citation_ids else "0")
-        if not citation_drawer.value:
-            citation_drawer.value = True
-        await show_citations(
-            app.storage.general["cached_citations"],
-            citation_ids,
-            citations_card,
-            citation_spinner,
-        )
-
-    client_events.show_message_citations_clicked.subscribe(
-        show_message_citations_clicked_handler
-    )
-
     # 5. Others: UI, waiting spinner
     text_input.bind_enabled_from(waiting_spinner, "visible", backward=lambda v: not v)
     upload_btn.bind_enabled_from(waiting_spinner, "visible", backward=lambda v: not v)
@@ -485,6 +530,7 @@ async def root():
         from .utilities import generate_id
         from .viewers import (
             display_user_message,
+            display_bot_message,
             display_message_footer,
             show_session_history,
         )
@@ -493,9 +539,22 @@ async def root():
             load_sessions_by_user,
             generate_session_title,
         )
+        from . import hurag
+        from .agents import (
+            get_agent,
+            AgentDeps,
+            compress_history_if_needed,
+        )
+        from pydantic_ai.messages import (
+            PartDeltaEvent,
+            FunctionToolCallEvent,
+            FunctionToolResultEvent,
+            TextPartDelta,
+            ThinkingPartDelta,
+        )
 
         # Perpare user query and timestamp
-        query = message or text_input.value.strip()
+        query = message or (text_input.value or "").strip()
         if not query:
             return
         query_ts = datetime.now()
@@ -505,8 +564,8 @@ async def root():
         if app.storage.client["current_session_id"] is None:
             # Generate new session's title in background
             task = asyncio.create_task(generate_session_title(query))
-            app.storage.client["citations"] = {}
             app.storage.client["messages"] = {}
+            app.storage.client["raw_msgs"] = []
             message_container.clear()
             message_container.classes(add="flex-grow overflow-y-auto")
 
@@ -522,25 +581,59 @@ async def root():
         # Show waiting spinner and scroll to bottom, will disable input area
         waiting_spinner.set_visibility(True)
         await scroll_to_bottom(message_container)
+        await show_thinking_drawer()
 
-        # Agent loop, retrieve citations, and generate the final response
-        # TODO
+        # Agent loop and generate the final response
+        agent = get_agent()
+        http_client = await hurag.get_client()
+        current_user = User.model_validate(app.storage.user["current_user"])
+        deps = AgentDeps(user=current_user, client=http_client)
 
-        # merge citations retrieved by tools
-        retrieved_citations: list[Citation] = []  # should be implemented later
-        app.storage.general["cached_citations"] |= {
-            c.id: c.model_dump() for c in retrieved_citations
-        }
+        app.storage.client["raw_msgs"], _ = compress_history_if_needed(
+            app.storage.client["raw_msgs"]
+        )
 
-        # Get current citation IDs
-        citation_ids = [c.id or "" for c in retrieved_citations]
+        response = ""
+        with message_container:
+            bot_msg_box = await display_bot_message(response)
 
-        # Show final response in stream mode
-        # TODO: should be implemented later
-        response: str = ""
-        response_ts: datetime = datetime.now()
+            async with agent.run_stream_events(
+                query,
+                deps=deps,
+                message_history=app.storage.client["raw_msgs"],
+            ) as events:
+                thinking_started = False
 
-        # Save/Update session, message and citations
+                async for event in events:
+                    # 1. Tool call notification
+                    if isinstance(event, FunctionToolCallEvent):
+                        args_repr = str(event.part.args) if event.part.args else ""
+                        if len(args_repr) > 120:
+                            args_repr = args_repr[:117] + "..."
+                        await show_thinking_part(
+                            f"\n\n⚡ Tool Call: {event.part.tool_name}({args_repr})"
+                        )
+                    # 2. Tool completed notification (Suppress tool return value)
+                    elif isinstance(event, FunctionToolResultEvent):
+                        await show_thinking_part(
+                            f"\n\n✔  Tool Completed: {event.part.tool_name}"
+                        )
+                    elif isinstance(event, PartDeltaEvent):
+                        if isinstance(event.delta, ThinkingPartDelta):
+                            if not thinking_started:
+                                await show_thinking_part("\n\n🧠 Thinking: ")
+                                thinking_started = True
+                            await show_thinking_part(event.delta.content_delta or "")
+                        elif isinstance(event.delta, TextPartDelta):
+                            response += event.delta.content_delta
+                            bot_msg_box.set_content(mdformat.text(response))
+                            await scroll_to_bottom(message_container)
+
+                app.storage.client["raw_msgs"] = events.all_messages()
+
+        response_ts = datetime.now()
+
+        # Save/Update session and messages
         if app.storage.user["current_user"]["id"] is not None:
             # Not a guest user
             if app.storage.client["current_session_id"] is None:
@@ -554,7 +647,6 @@ async def root():
                     query_ts=query_ts,
                     response=response,
                     response_ts=response_ts,
-                    citation_ids=citation_ids,
                     session_id=None,
                     title=title,
                     user_id=app.storage.user["current_user"]["id"],
@@ -570,15 +662,11 @@ async def root():
                     query_ts=query_ts,
                     response=response,
                     response_ts=response_ts,
-                    citation_ids=citation_ids,
                     session_id=app.storage.client["current_session_id"],
                 )
             # Update current messages
             app.storage.client["messages"][q.id] = q.model_dump()
             app.storage.client["messages"][r.id] = r.model_dump()
-            # Update citations
-            if citation_ids:
-                app.storage.client["citations"][r.id] = citation_ids
             # Refresh recent sessions in the left drawer
             top_sessions = await load_sessions_by_user(
                 app.storage.user["current_user"]["id"],
@@ -625,14 +713,11 @@ async def root():
                 response_ts,
             )
 
-        # End of a round of chat
+        # End of a round of event loop
         waiting_spinner.set_visibility(False)
         await scroll_to_bottom(message_container)
         text_input.run_method("focus")
 
-        # Refresh citations drawer if open
-        if citation_drawer.value:
-            client_events.show_message_citations_clicked.emit(r.id)
 
         # --- End of send_message function ---
 
@@ -667,15 +752,10 @@ async def root():
 
         client_events.user_logged_in.emit(app.storage.user["current_user"]["account"])
 
-    # cached citations, {id: citation, ...}
-    if "cached_citations" not in app.storage.general:
-        # {id: Citation.model_dump(), ...}
-        app.storage.general["cached_citations"] = {}
-
-    # current session and its citation id set
+    # current session ID and messages
     app.storage.client["current_session_id"] = None
-    app.storage.client["citations"] = {}  # {msg_id: [citation_id, ...], ...}
     app.storage.client["messages"] = {}  # {msg_id: Message.model_dump(), ...}
+    app.storage.client["raw_msgs"] = [] # list[ModelMessage]
 
 
 if __name__ in {"__main__", "__mp_main__"}:

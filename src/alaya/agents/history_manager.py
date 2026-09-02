@@ -13,6 +13,7 @@ from pydantic_ai.messages import (
 )
 
 from .. import logger, conf
+from ..models import Message
 
 ContextSize = Literal["tiny", "medium", "large"]
 
@@ -141,3 +142,28 @@ def compress_history_if_needed(
     )
 
     return new_history, True
+
+
+def restore_message_history(
+    stored_messages: list[Message],
+) -> list[ModelMessage]:
+    history: list[ModelMessage] = []
+
+    for item in stored_messages:
+        role = item.role
+        content = item.content
+
+        if role == "user":
+            history.append(
+                ModelRequest(
+                    parts=[UserPromptPart(content=content)],
+                )
+            )
+        elif role == "assistant":
+            history.append(
+                ModelResponse(
+                    parts=[TextPart(content=content)],
+                )
+            )
+
+    return history

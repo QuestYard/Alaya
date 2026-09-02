@@ -89,15 +89,15 @@ async def display_message_footer(
                 ).props("round dense flat size=sm color=gray-500 my-0 py-0"):
                     ui.tooltip("Download").classes("text-caption")
 
-                with ui.button(
-                    on_click=(
-                        lambda _, i=message_id: (
-                            events.show_message_citations_clicked.emit(i)
-                        )
-                    ),
-                    icon="sym_r_auto_stories",
-                ).props("round dense flat size=sm color=gray-500 my-0 py-0"):
-                    ui.tooltip("Citations").classes("text-caption")
+                # with ui.button(
+                #     on_click=(
+                #         lambda _, i=message_id: (
+                #             events.show_message_citations_clicked.emit(i)
+                #         )
+                #     ),
+                #     icon="sym_r_auto_stories",
+                # ).props("round dense flat size=sm color=gray-500 my-0 py-0"):
+                #     ui.tooltip("Citations").classes("text-caption")
 
     return footer_col
 

@@ -18,6 +18,7 @@ from .history_manager import (
     estimate_tokens,
     get_context_limit,
     ContextSize,
+    restore_message_history,
 )
 
 
@@ -30,4 +31,5 @@ __all__ = [
     "estimate_tokens",
     "get_context_limit",
     "ContextSize",
+    "restore_message_history",
 ]

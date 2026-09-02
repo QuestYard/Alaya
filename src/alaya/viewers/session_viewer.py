@@ -263,7 +263,7 @@ async def session_browser(user_id: str, events: ClientEvents):
         events.history_session_clicked.emit(session_id)
 
     async def search_clicked_callback():
-        keyword = search_inp.value.strip()
+        keyword = (search_inp.value or "").strip()
         if not keyword:
             return
         nonlocal retriever, session_ids, indexing_task

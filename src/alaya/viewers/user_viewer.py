@@ -74,11 +74,11 @@ def user_manager(app, events: ClientEvents):
     # --- Callback functions ---
     async def submit(e):
         _ = e
-        submitted_account = account_inp.value.strip()
+        submitted_account = (account_inp.value or "").strip()
         if not submitted_account or submitted_account.lower() == "guest":
             ui.notify("输入的用户账户无效。", type="warning")
             return
-        submitted_password = password_inp.value.strip()
+        submitted_password = (password_inp.value or "").strip()
         try:
             user = await login(submitted_account, submitted_password)
             ui.notify(f"用户{user.username}({user.account})验证通过。", type="positive")
@@ -180,9 +180,9 @@ def change_password_and_login(user: User, app, events: ClientEvents):
     # --- Callback functions ---
     async def submit(e):
         _ = e
-        old_password = old_password_inp.value.strip()
-        new_password = new_password_inp.value.strip()
-        if new_password != ensure_password_inp.value.strip():
+        old_password = (old_password_inp.value or "").strip()
+        new_password = (new_password_inp.value or "").strip()
+        if new_password != (ensure_password_inp.value or "").strip():
             ui.notify("新密码两次输入不一致，请重新输入。", type="negative")
             return
         if new_password == old_password:

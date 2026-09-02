@@ -1,6 +1,4 @@
-from .citation_service import (
-    load_citations_by_ids,
-)
+from .citation_service import load_citations_by_ids
 from .user_service import (
     get_user,
     get_user_by_id,

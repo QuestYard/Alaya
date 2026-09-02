@@ -1,5 +1,6 @@
 from typing import Any, Literal
 from pydantic_ai import Agent, RunContext
+from pydantic_ai.capabilities import ReinjectSystemPrompt
 from httpx import AsyncClient
 from dataclasses import dataclass
 
@@ -23,6 +24,7 @@ class AgentDeps:
 _agent = Agent(
     f"deepseek:{os.getenv('DEEPSEEK_MODEL', 'deepseek-v4-flash')}",
     deps_type=AgentDeps,
+    capabilities=[ReinjectSystemPrompt()],
 )
 
 
